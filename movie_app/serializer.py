@@ -1,30 +1,38 @@
 from rest_framework import serializers
 from movie_app.models import Director, Movie, Review
+from django.db.models import Avg
 
 
 class ReviewSerializer(serializers.ModelSerializer):
+    text = serializers.CharField(min_length=10)
+
     class Meta:
         model = Review
         fields = ('text', 'movie', 'stars')
 
 
 class MovieSerializer(serializers.ModelSerializer):
-    reviews = ReviewSerializer(many=True)
-    rating = serializers.SerializerMethodField()
+    title = serializers.CharField(min_length=10, max_length=20)
 
     class Meta:
         model = Movie
-        fields = ('title', 'description', 'duration', 'director', 'reviews', 'rating')
+        fields = ('title', 'description', 'duration', 'director')
 
-    def get_rating(self, movie):
-        reviews = movie.reviews.all()
-        if reviews:
-            total_stars = sum(review.stars for review in reviews)
-            return total_stars / len(reviews)
-        return 0
+
+class MovieWithReviewsSerializer(serializers.ModelSerializer):
+    reviews = ReviewSerializer(many=True)
+    average_rating = serializers.SerializerMethodField()
+
+    def get_average_rating(self, movie):
+        return movie.reviews.aggregate(Avg('stars'))['stars__avg']
+
+    class Meta:
+        model = Movie
+        fields = '__all__'
 
 
 class DirectorSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(min_length=10, max_length=30)
     movies_count = serializers.SerializerMethodField()
 
     class Meta:
